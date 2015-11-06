@@ -1,0 +1,1 @@
+﻿# Time warping without time in offline signature
