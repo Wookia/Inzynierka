@@ -1,78 +1,81 @@
-﻿import math
+﻿#!/usr/bin/python
+import math
+import copy
 
-class Path:
-    road = []
-    def __init__(self, mistake, distance, road):
-        self.mistake = mistake
-        self.distance = distance
+class ShortestPath:
+    road = [[]]
+    globalDistance = 0
+    localDistance = 0
+    def __init__(self, road, globalDistance, localDistance):
         self.road = road
+        self.globalDistance = globalDistance
+        self.localDistance = localDistance
+
+    def getRoad(self):
+        return copy.deepcopy(self.road)
 
 class BestWay:
     pathA = []
     pathB = []
-    shortest = []
 
     def __init__(self, pathA, pathB):
         self.pathA = pathA
         self.pathB = pathB
-        self.distance = 0.0
-        self.scale = 0
+        self.pathMap = [[0 for i in range(len(pathB))] for j in range(len(pathA))]
 
-    def find(self):
-        path = self.shortestDistanceToMe(len(self.pathA)-1, len(self.pathB)-1, "0")
-        print ("Global mistake: %f\n Global distance: %f" % (path.mistake, path.distance))
-        print (path.road)
 
-    def shortestDistanceToMe(self, i, j, parent):
+    def getPathToMe(self, i, j):
+        myMistake = self.mistake(i, j)
         if (i==0 and j ==0):
             pathRoad = [[i, j]]
-            pathDistance = 0.0
-            pathMistake = self.mistake(i, j)
+            pathMistake = 1.0*myMistake
         elif (i==0 and j>0):
-            path = self.shortestDistanceToMe(i, j-1, parent+"y")
-            pathRoad = path.road
+            path = self.pathMap[i][j - 1]
+            pathRoad = path.getRoad()
             pathRoad.append([i, j])
-            pathDistance = 1 + path.distance
-            pathMistake = self.mistake(i, j) + path.mistake
+            pathMistake = path.globalDistance + 1.0*myMistake
         elif (i>0 and j==0):
-            path = self.shortestDistanceToMe(i-1, j, parent+"x")
-            pathRoad = path.road
+            path = self.pathMap[i-1][j]
+            pathRoad = path.getRoad()
             pathRoad.append([i, j])
-            pathDistance = 1 + path.distance
-            pathMistake = self.mistake(i, j) + path.mistake
+            pathMistake = path.globalDistance + 1.0*myMistake
         else:
-            leftPath = self.shortestDistanceToMe(i-1, j, parent+"x")
-            downPath = self.shortestDistanceToMe(i, j-1, parent+"y")
-            diagonalPath = self.shortestDistanceToMe(i-1, j-1, parent+"d")
-            whereWhereYou = self.whereWhereYou(leftPath, downPath, diagonalPath)
-            if(whereWhereYou == "left"):
-                pathRoad = leftPath.road
+            leftPath = self.pathMap[i-1][j]
+            downPath = self.pathMap[i][j-1]
+            diagonalPath = self.pathMap[i-1][j-1]
+            leftGlobalDistance = leftPath.globalDistance
+            downGlobalDistance = downPath.globalDistance
+            diagonalGlobalDistance = diagonalPath.globalDistance
+            if (leftGlobalDistance<=downGlobalDistance and leftGlobalDistance<=diagonalGlobalDistance):
+                pathRoad = leftPath.getRoad()
                 pathRoad.append([i, j])
-                pathDistance = 1 + leftPath.distance
-                pathMistake = self.mistake(i, j) + leftPath.mistake
-            elif(whereWhereYou == "diagonal"):
-                pathRoad = diagonalPath.road
+                pathMistake = leftGlobalDistance + 1.0*myMistake
+            elif (diagonalGlobalDistance<=downGlobalDistance and diagonalGlobalDistance<=leftGlobalDistance):
+                pathRoad = diagonalPath.getRoad()
                 pathRoad.append([i, j])
-                pathDistance = math.sqrt(2) + diagonalPath.distance
-                pathMistake = self.mistake(i, j) + diagonalPath.mistake
-            elif(whereWhereYou == "down"):
-                pathRoad = downPath.road
+                pathMistake = diagonalGlobalDistance + self.modyficator*myMistake
+            elif (downGlobalDistance<=diagonalGlobalDistance and downGlobalDistance<=leftGlobalDistance):
+                pathRoad = downPath.getRoad()
                 pathRoad.append([i, j])
-                pathDistance = 1 + downPath.distance
-                pathMistake = self.mistake(i, j) + downPath.mistake
+                pathMistake = downGlobalDistance + 1.0*myMistake
+        self.pathMap[i][j] = ShortestPath(pathRoad, pathMistake, myMistake)
+        return self.pathMap[i][j]
 
-        return Path(pathMistake, pathDistance, pathRoad)
+    def find(self, method):
+        if (method == "square"):
+            self.modyficator = math.sqrt(2)
+        elif (method == "taxi"):
+            self.modyficator = 2.0
+        elif (method == "infini"):
+            self.modyficator = 1.0
+        for a in range (len(self.pathA)):
+            for b in range (len(self.pathB)):
+                self.getPathToMe(a, b)
 
-    def whereWhereYou(self, leftPath, downPath, diagonalPath):
-        left = 1.0*leftPath.mistake*self.scale + 1.0*leftPath.distance*(1.0-self.scale)
-        down = 1.0*downPath.mistake*self.scale + 1.0*downPath.distance*(1.0-self.scale)
-        diagonal = 1.0*diagonalPath.mistake*self.scale + 1.0*diagonalPath.distance*(1.0-self.scale)
-        if(left<diagonal and left<=down):
-            return "left"
-        elif(diagonal<=left and diagonal<=down):
-            return "diagonal"
-        elif(down<diagonal and down<=left):
-            return "down"
+        pathToEnd = self.pathMap[len(self.pathA)-1][len(self.pathB)-1]
+        print (method)
+        print (pathToEnd.globalDistance)
+        print (pathToEnd.getRoad())
 
     def mistake(self, i, j):
         sum = 0.0
@@ -80,7 +83,26 @@ class BestWay:
             sum += math.pow(self.pathA[i][x]-self.pathB[j][x], 2)
         return math.sqrt(sum)
 
-a = [[1],[1],[2],[5]]
-b = [[1],[4],[5],[6],[7]]
-bestWay = BestWay(a, b)
-bestWay.find()
+class DataGenerator:
+
+    def __init__ (self):
+        self.a = 0
+    def sinus(self, start, distance, probes):
+        data = []
+        change = (distance)/(1.0*probes)
+        end = start + distance
+        while (start < end):
+
+            data.append([math.sin(start)])
+            start += change
+        return data
+
+dataGenerator = DataGenerator()
+a1 = dataGenerator.sinus(0.0, 2.0*math.pi, 100)
+b1 = dataGenerator.sinus(0.0, 2.0*math.pi, 100)
+bestWay = BestWay(a1, b1)
+bestWay.find("square")
+
+bestWay.find("taxi")
+
+bestWay.find("infini")
